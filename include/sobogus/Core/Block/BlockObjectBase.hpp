@@ -1,0 +1,123 @@
+/*
+ * This file is part of bogus, a C++ sparse block matrix library.
+ *
+ * Copyright 2013 Gilles Daviet <gdaviet@gmail.com>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+
+#ifndef BOGUS_BLOCKOBJECTBASE_HPP
+#define BOGUS_BLOCKOBJECTBASE_HPP
+
+#include "../Block.fwd.hpp"
+
+namespace bogus
+{
+
+//! Base class for anything block
+template < typename Derived >
+struct BlockObjectBase
+{
+	//! Returns a const reference to the implementation
+	const Derived& derived() const
+	{
+		return static_cast< const Derived& >( *this ) ;
+	}
+	//! Returns a reference to the implementation
+	Derived& derived()
+	{
+		return static_cast< Derived& >( *this ) ;
+	}
+
+	typedef BlockMatrixTraits< Derived > Traits ;
+
+	typedef typename Traits::Index Index ;
+	typedef typename Traits::Scalar Scalar ;
+	typedef typename Traits::ConstTransposeReturnType ConstTransposeReturnType ;
+	typedef typename Traits::TransposeObjectType TransposeObjectType ;
+	enum { is_transposed = Traits::is_transposed } ;
+
+	typedef typename Traits::PlainObjectType PlainObjectType ;
+
+	typedef typename BlockMatrixTraits< PlainObjectType >::BlockType BlockType ;
+
+	//! Returns the total number of rows of the matrix ( expanding blocks )
+	Index rows() const { return derived().rows() ; }
+	//! Returns the total number of columns of the matrix ( expanding blocks )
+	Index cols() const { return derived().cols() ; }
+
+	//! Returns the number of rows of a given block row
+	Index blockRows( Index row ) const { return derived().blockRows( row ) ; }
+	//! Returns the number of columns of a given block columns
+	Index blockCols( Index col ) const { return derived().blockCols( col ) ; }
+
+	//! Returns the number of block rows of the matrix
+	Index rowsOfBlocks() const { return derived().rowsOfBlocks() ; }
+	//! Returns the number of block columns of the matrix
+	Index colsOfBlocks() const { return derived().colsOfBlocks() ; }
+
+	//! Returns an array containing the first index of each row
+	const Index *rowOffsets( ) const { return derived().rowOffsets( ) ; }
+	//! Returns an array containing the first index of each column
+	const Index *colOffsets( ) const { return derived().colOffsets( ) ; }
+
+	//! Returns an array containing the first index of a given row
+	Index rowOffset( Index row ) const { return rowOffsets()[ row ] ; }
+	//! Returns an array containing the first index of a given columns
+	Index colOffset( Index col ) const { return colOffsets()[ col ] ; }
+
+	//! Return a const transposed view of this object
+	ConstTransposeReturnType transpose() const { return derived().transpose() ; }
+
+	//! Performs a matrix vector multiplication
+	/*! \tparam DoTranspose If true, performs \c res = \c alpha * \c M' * \c rhs + beta * res,
+						  otherwise \c res = \c alpha * M * \c rhs + beta * res
+	  */
+	template < bool DoTranspose, typename RhsT, typename ResT >
+	void multiply( const RhsT& rhs, ResT& res, Scalar alpha = 1, Scalar beta = 0 ) const
+	{
+		derived().template multiply< DoTranspose >( rhs, res, alpha, beta ) ;
+	}
+
+	//! Compile-time block properties
+	enum CompileTimeProperties
+	{
+		RowsPerBlock = BlockTraits< BlockType >::RowsAtCompileTime,
+		ColsPerBlock = BlockTraits< BlockType >::ColsAtCompileTime,
+
+		has_row_major_blocks = BlockTraits< BlockType >::is_row_major,
+		has_square_or_dynamic_blocks = ColsPerBlock == RowsPerBlock,
+		has_fixed_rows_blocks = ((int) RowsPerBlock != internal::DYNAMIC ),
+		has_fixed_cols_blocks = ((int) ColsPerBlock != internal::DYNAMIC ),
+		has_fixed_size_blocks = has_fixed_cols_blocks && has_fixed_rows_blocks
+	} ;
+	// To use as block type
+	enum {
+		RowsAtCompileTime = internal::DYNAMIC,
+		ColsAtCompileTime = internal::DYNAMIC,
+		is_self_transpose = Traits::is_symmetric
+	} ;
+};
+
+//! Default specialization of traits for BlockMatrices
+/*! Re-specialiazed for derived classes, see e.g. BlockMatrixTraits< SparseBlockMatrix > */
+template< typename Derived  >
+struct BlockMatrixTraits< BlockObjectBase< Derived > > {
+
+	typedef BOGUS_DEFAULT_INDEX_TYPE    Index ;
+	typedef BOGUS_DEFAULT_BLOCK_PTR_TYPE BlockPtr ;
+
+	typedef Derived PlainObjectType ;
+
+	typedef Transpose< Derived > ConstTransposeReturnType ;
+	typedef ConstTransposeReturnType TransposeObjectType ;
+
+	enum { is_symmetric = 0 } ;
+} ;
+
+}
+
+#endif // BLOCKMATRIX_HPP
